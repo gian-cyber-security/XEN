@@ -1,12 +1,4 @@
 torch>=2.4
-transformers>=4.55
-datasets>=3.0
-accelerate>=1.0
-peft>=0.14
-trl>=0.20
-bitsandbytes>=0.45; platform_system != "Windows"
 fastapi>=0.115
 uvicorn[standard]>=0.30
-pyyaml>=6.0
-safetensors>=0.4
-sentencepiece>=0.2
+pydantic>=2.0
