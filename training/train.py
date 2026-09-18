@@ -1,29 +1,37 @@
 from __future__ import annotations
+import argparse,json
+from pathlib import Path
+import torch
+from model.config import XENConfig
+from model.model import XENModel
+from model.tokenizer import XENTokenizer
 
-import argparse, torch, yaml
-from datasets import load_dataset
-from peft import LoraConfig
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TrainingArguments
-from trl import SFTTrainer
-
+def load_examples(path):
+    with open(path,encoding="utf-8") as f:
+        return [(x["instruction"].strip(),x["response"].strip()) for line in f if line.strip() for x in [json.loads(line)]]
 
 def main():
-    p = argparse.ArgumentParser(); p.add_argument("--config", default="configs/train.yaml"); a = p.parse_args()
-    with open(a.config, encoding="utf-8") as f: cfg = yaml.safe_load(f)
-    tok = AutoTokenizer.from_pretrained(cfg["model_name"], use_fast=True)
-    if tok.pad_token is None: tok.pad_token = tok.eos_token
-    kw = {"device_map": "auto"}
-    if torch.cuda.is_available(): kw["torch_dtype"] = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
-    if cfg.get("load_in_4bit", False):
-        kw["quantization_config"] = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4", bnb_4bit_compute_dtype=kw.get("torch_dtype", torch.float16), bnb_4bit_use_double_quant=True)
-    model = AutoModelForCausalLM.from_pretrained(cfg["model_name"], **kw)
-    data = load_dataset("json", data_files=cfg["train_file"], split="train")
-    data = data.map(lambda x: {"text": f"User: {x['instruction']}\nAssistant: {x['response']}"})
-    l = cfg["lora"]; peft = LoraConfig(r=l["r"], lora_alpha=l["alpha"], lora_dropout=l["dropout"], target_modules=l["target_modules"], task_type="CAUSAL_LM")
-    t = cfg["training"]
-    args = TrainingArguments(output_dir=cfg["output_dir"], num_train_epochs=t["num_train_epochs"], per_device_train_batch_size=t["per_device_train_batch_size"], gradient_accumulation_steps=t["gradient_accumulation_steps"], learning_rate=t["learning_rate"], warmup_ratio=t["warmup_ratio"], logging_steps=t["logging_steps"], save_steps=t["save_steps"], save_total_limit=t["save_total_limit"], gradient_checkpointing=t["gradient_checkpointing"], bf16=torch.cuda.is_available() and torch.cuda.is_bf16_supported(), fp16=torch.cuda.is_available() and not torch.cuda.is_bf16_supported(), report_to="none")
-    trainer = SFTTrainer(model=model, args=args, train_dataset=data, peft_config=peft, processing_class=tok, dataset_text_field="text", max_seq_length=cfg["max_seq_length"])
-    trainer.train(); trainer.save_model(cfg["output_dir"]); tok.save_pretrained(cfg["output_dir"])
+    p=argparse.ArgumentParser(); p.add_argument("--data",default="datasets/train.jsonl")
+    p.add_argument("--output",default="outputs/xen"); p.add_argument("--epochs",type=int,default=3)
+    p.add_argument("--lr",type=float,default=3e-4); a=p.parse_args()
+    examples=load_examples(a.data)
+    texts=[f"User: {q} Assistant: {r}" for q,r in examples]
+    tokenizer=XENTokenizer(); tokenizer.fit(texts)
+    cfg=XENConfig(vocab_size=max(32000,len(tokenizer.vocab))); model=XENModel(cfg)
+    device="cuda" if torch.cuda.is_available() else "cpu"; model.to(device)
+    optimizer=torch.optim.AdamW(model.parameters(),lr=a.lr); model.train()
+    for epoch in range(a.epochs):
+        total=0.0
+        for text in texts:
+            ids=tokenizer.encode(text,max_length=cfg.max_seq_len)
+            x=torch.tensor([ids[:-1]],dtype=torch.long,device=device)
+            y=torch.tensor([ids[1:]],dtype=torch.long,device=device)
+            optimizer.zero_grad(set_to_none=True); _,loss=model(x,y); loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(),1.0); optimizer.step(); total+=float(loss)
+        print(f"epoch={epoch+1} loss={total/max(1,len(texts)):.4f}")
+    out=Path(a.output); out.mkdir(parents=True,exist_ok=True)
+    torch.save({"config":cfg.__dict__,"model":model.state_dict()},out/"model.pt")
+    tokenizer.save(out/"tokenizer.json")
+    print(f"Saved XEN from-scratch model to {out}")
 
-
-if __name__ == "__main__": main()
+if __name__=="__main__": main()
