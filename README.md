@@ -1,5 +1,7 @@
 # XEN
 
+> **THIS AI JUST RUN IN LOCAL OR IN HUGGINGFACE!**
+
 **XEN** is a from-scratch Text-to-Text language model project designed for local experimentation and iterative training.
 
 XEN does not load Qwen, Llama, Mistral, Gemma, or another pretrained language model. Its tokenizer, architecture, and weights are created by this repository and initialized from scratch.
