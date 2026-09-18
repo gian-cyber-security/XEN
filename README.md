@@ -1,54 +1,45 @@
 # XEN
 
-**XEN** is an open, modular AI system focused on text-to-text generation, instruction following, reasoning, coding, and mathematics.
+**XEN** is a Python-first, from-scratch Text-to-Text language model project.
 
-## Text-to-Text foundation
+XEN does not load Qwen, Llama, Mistral, Gemma, or another pretrained language model. The architecture, tokenizer, and weights are created by this repository and initialized from scratch.
 
-- Hugging Face Transformers inference
-- Configurable open-weight base model
-- Chat/instruction formatting
-- Local CLI inference
-- FastAPI server
-- JSONL dataset preparation
-- LoRA/QLoRA supervised fine-tuning
-- Basic generation evaluation
-- Configurable VRAM/training settings
+This first prototype is intentionally small for experimental training on a normal GPU. It is a research prototype, not a claim of frontier-level capability.
 
-## Structure
+## Architecture
 
-~~~text
-XEN/
-├── api/server.py
-├── configs/train.yaml
-├── datasets/README.md
-├── evaluation/evaluate.py
-├── evaluation/benchmarks.jsonl
-├── inference/generate.py
-├── model/loader.py
-├── scripts/prepare_dataset.py
-├── training/train.py
-├── requirements.txt
-└── README.md
+- Decoder-only causal Transformer
+- Learned token and positional embeddings
+- Causal self-attention
+- Feed-forward MLP blocks
+- Layer normalization
+- Tied input/output embeddings
+- Autoregressive next-token prediction
+
+## Python 100%
+
+All project source code is Python. No C++, Rust, TypeScript, or pretrained language model is part of XEN.
+
+## Train
+
+Create datasets/train.jsonl:
+
+~~~json
+{"instruction":"What is 2 + 2?","response":"4"}
+{"instruction":"Say hello.","response":"Hello!"}
 ~~~
 
-## Install
-
-Python 3.10+ recommended.
+Then run:
 
 ~~~bash
-python -m venv .venv
-# Windows: .venv\\Scripts\\activate
-# Linux/macOS: source .venv/bin/activate
-pip install -r requirements.txt
+python training/train.py --data datasets/train.jsonl --output outputs/xen
 ~~~
 
-## Run
+## Generate
 
 ~~~bash
-python inference/generate.py --model Qwen/Qwen3-4B-Instruct-2507 --prompt "Explain photosynthesis simply."
+python inference/generate.py --model-dir outputs/xen --prompt "What is 2 + 2?"
 ~~~
-
-The first run downloads the selected model from Hugging Face.
 
 ## API
 
@@ -56,50 +47,8 @@ The first run downloads the selected model from Hugging Face.
 uvicorn api.server:app --host 0.0.0.0 --port 8000
 ~~~
 
-POST JSON to /generate with prompt, max_new_tokens, temperature, and top_p.
+The /health endpoint reports XEN-from-scratch.
 
-## Fine-tuning
+## Next
 
-Training uses supervised fine-tuning of an existing open-weight base model. It is not pretending to train a frontier foundation model from zero.
-
-Example JSONL:
-
-~~~json
-{"instruction":"What is 2 + 2?","response":"2 + 2 = 4."}
-~~~
-
-~~~bash
-python scripts/prepare_dataset.py --input datasets/train.jsonl --output datasets/processed
-python training/train.py --config configs/train.yaml
-~~~
-
-Set load_in_4bit=true for QLoRA on supported hardware. Batch size, sequence length, LoRA rank, and other settings are configurable.
-
-## Data quality
-
-Training data should be accurate, diverse, appropriately licensed, deduplicated, and free of API keys, passwords, tokens, and unnecessary personal information. Do not automatically train the production model on every conversation. Prefer an opt-in collection -> redaction -> filtering -> deduplication -> evaluation -> fine-tuning -> benchmark -> deployment pipeline.
-
-## Evaluation
-
-~~~bash
-python evaluation/evaluate.py --model ./outputs/xen --data evaluation/benchmarks.jsonl
-~~~
-
-## Roadmap
-
-- [x] XEN Text-to-Text foundation
-- [x] Local inference
-- [x] API inference
-- [x] Dataset preparation
-- [x] LoRA/QLoRA training pipeline
-- [x] Basic evaluation
-- [ ] XEN-Code
-- [ ] XEN-Reason
-- [ ] XEN-Vision
-- [ ] XEN-Image
-- [ ] XEN-ImageEdit
-- [ ] XEN-Video
-
-## License
-
-MIT. Check every base model and dataset license before redistribution or commercial use.
+The prototype can later grow with a stronger tokenizer, larger context, RoPE, RMSNorm, improved attention, larger datasets, distributed training, evaluation, and larger XEN model sizes.
