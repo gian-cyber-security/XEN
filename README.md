@@ -1,39 +1,57 @@
 # XEN
 
-**XEN** is a Python-first, from-scratch Text-to-Text language model project.
+**XEN** is a from-scratch Text-to-Text language model project designed for local experimentation and iterative training.
 
-XEN does not load Qwen, Llama, Mistral, Gemma, or another pretrained language model. The architecture, tokenizer, and weights are created by this repository and initialized from scratch.
+XEN does not load Qwen, Llama, Mistral, Gemma, or another pretrained language model. Its tokenizer, architecture, and weights are created by this repository and initialized from scratch.
 
-This first prototype is intentionally small for experimental training on a normal GPU. It is a research prototype, not a claim of frontier-level capability.
-
-## Architecture
+## Current architecture
 
 - Decoder-only causal Transformer
-- Learned token and positional embeddings
-- Causal self-attention
-- Feed-forward MLP blocks
-- Layer normalization
+- Byte-level UTF-8 tokenizer (no normal-language OOV problem)
+- RoPE positional encoding
+- RMSNorm
+- Multi-head causal self-attention using PyTorch scaled dot-product attention
+- SwiGLU feed-forward blocks
 - Tied input/output embeddings
 - Autoregressive next-token prediction
+- Random initialization
 
-## Python 100%
+The default training configuration is aimed at an **RTX 4060 8GB + 32GB RAM** development machine. It is still a research prototype; capability depends primarily on dataset quality, training compute, and training duration.
 
-All project source code is Python. No C++, Rust, TypeScript, or pretrained language model is part of XEN.
+## Install
 
-## Train
+~~~bash
+python -m venv .venv
+.venv\\Scripts\\activate
+pip install -r requirements.txt
+~~~
 
-Create datasets/train.jsonl:
+## Dataset
+
+Create `datasets/train.jsonl` with one JSON object per line:
 
 ~~~json
 {"instruction":"What is 2 + 2?","response":"4"}
-{"instruction":"Say hello.","response":"Hello!"}
+{"instruction":"Explain what a variable is in programming.","response":"A variable is a named place for storing a value that a program can read or change."}
 ~~~
 
-Then run:
+For a useful model, use a large, diverse, cleaned dataset rather than a tiny collection of examples.
+
+## Train
+
+The training engine reads `configs/train.yaml` and supports batching, validation split, CUDA mixed precision, gradient accumulation, clipping, cosine learning-rate decay with warmup, periodic checkpoints, and resume training.
 
 ~~~bash
 python training/train.py --data datasets/train.jsonl --output outputs/xen
 ~~~
+
+Resume from a checkpoint:
+
+~~~bash
+python training/train.py --data datasets/train.jsonl --output outputs/xen --resume outputs/xen/latest.pt
+~~~
+
+The best validation model is saved as `outputs/xen/model.pt`. Training state is saved as `outputs/xen/latest.pt` and periodic `checkpoint-*.pt` files.
 
 ## Generate
 
@@ -47,8 +65,10 @@ python inference/generate.py --model-dir outputs/xen --prompt "What is 2 + 2?"
 uvicorn api.server:app --host 0.0.0.0 --port 8000
 ~~~
 
-The /health endpoint reports XEN-from-scratch.
+## Scaling XEN
 
-## Next
+A practical development path is to improve data quality and training infrastructure first, then scale model size when the available GPU allows it. More examples do not automatically make a small model proportionally smarter; model capacity, token count, data quality, and optimization all matter.
 
-The prototype can later grow with a stronger tokenizer, larger context, RoPE, RMSNorm, improved attention, larger datasets, distributed training, evaluation, and larger XEN model sizes.
+## License
+
+MIT
