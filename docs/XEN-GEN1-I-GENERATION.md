@@ -1,88 +1,88 @@
 # XEN-GEN1-I — Image Generation Guide
 
-XEN-GEN1-I adalah model image generation XEN yang dipisahkan dari XEN-GEN1-T.
+XEN-GEN1-I is the image generation model in the XEN family, separate from XEN-GEN1-T.
 
 > **THIS AI JUST RUN IN LOCAL OR IN HUGGINGFACE!**
 
 ## Status
 
-XEN-GEN1-I saat ini adalah baseline image model yang dilatih dari nol. Kualitas gambar sangat bergantung pada dataset dan lama training.
+XEN-GEN1-I is currently a from-scratch baseline image model. Image quality depends heavily on the training dataset and training progress.
 
-**Penting:** jangan langsung mencoba generate sebelum checkpoint model image sudah tersedia.
+**Important:** do not attempt image generation until a compatible image-model checkpoint is available.
 
 ## 1. Install dependencies
 
-Dari root repository XEN:
+From the XEN repository root:
 
 ~~~bash
 pip install -r requirements.txt
 ~~~
 
-Disarankan menggunakan environment Python terpisah, misalnya virtual environment.
+Using a dedicated Python virtual environment is recommended.
 
-## 2. Siapkan dataset
+## 2. Prepare the dataset
 
-Training menggunakan JSONL dengan format:
+Training uses JSONL with this format:
 
 ~~~json
 {"image":"datasets/images/cat.jpg","caption":"a small orange cat sitting in a garden"}
 {"image":"datasets/images/car.jpg","caption":"a low poly red sports car on a mountain road"}
 ~~~
 
-Setiap baris berisi:
+Each line contains:
 
-- `image`: path ke file gambar.
-- `caption`: deskripsi gambar.
+- `image`: path to the image file.
+- `caption`: description of the image.
 
-Gunakan dataset yang beragam dan caption yang jelas. Dataset training harus sudah tersedia sebelum menjalankan image training.
+Use a diverse dataset with clear, descriptive captions. The training dataset must exist before starting image training.
 
 ## 3. Train XEN-GEN1-I
 
-Jalankan:
+Run:
 
 ~~~bash
 python training/image_train.py --data datasets/image_data.jsonl --output outputs/xen-gen1-i
 ~~~
 
-Contoh jika ingin mengatur jumlah step:
+You can also specify the number of training steps:
 
 ~~~bash
 python training/image_train.py --data datasets/image_data.jsonl --output outputs/xen-gen1-i --steps 10000 --batch-size 2 --lr 0.0002
 ~~~
 
-Training membutuhkan waktu dan hasil pertama kemungkinan masih sederhana atau belum stabil. Itu normal untuk model yang benar-benar dilatih dari nol.
+Training takes time, and early results may be very simple, unstable, or noisy. This is expected for a model trained entirely from scratch.
 
-## 4. Generate gambar setelah training
+## 4. Generate images after training
 
-Setelah ada checkpoint model yang kompatibel, jalankan inference image generator.
+Once a compatible checkpoint exists, an image inference script can be used to generate images.
 
-**Catatan penting:** repository saat ini belum menyediakan script inference `inference/image_generate.py`. Jadi jangan mengarang command generate yang belum tersedia.
+**Current repository status:** `inference/image_generate.py` has not been added yet. Do not use a generation command that assumes this script exists.
 
-Workflow yang benar untuk saat ini:
+The current workflow is:
 
 ~~~text
 Dataset
   ↓
 training/image_train.py
   ↓
-checkpoint XEN-GEN1-I
+XEN-GEN1-I checkpoint
   ↓
-inference script (akan ditambahkan)
+image inference script (to be added)
   ↓
-PNG hasil generate
+PNG output
 ~~~
 
-Inference script akan menerima prompt teks, memuat checkpoint XEN-GEN1-I + tokenizer + system prompt image, lalu menyimpan hasil sebagai file PNG.
+The future inference script should accept a text prompt, load the XEN-GEN1-I checkpoint, tokenizer, and image system prompt, then save the generated image as a PNG file.
 
-## 5. Contoh prompt
+## 5. Example prompts
 
-Contoh prompt yang bisa digunakan setelah inference script tersedia:
+Example prompt:
 
 ~~~text
 a small orange cat sitting in a quiet garden, soft morning light, detailed leaves, natural composition
 ~~~
 
-Atau:
+Another example:
 
 ~~~text
 a low-poly fantasy castle on a floating island, mountains in the distance, dramatic clouds, cinematic lighting
@@ -90,37 +90,37 @@ a low-poly fantasy castle on a floating island, mountains in the distance, drama
 
 ## 6. Troubleshooting
 
-### Hasil berupa noise atau bentuk random
+### The output is noise or random shapes
 
-Kemungkinan penyebab:
+Possible causes include:
 
-- model belum cukup lama dilatih;
-- dataset terlalu sedikit;
-- caption kurang jelas;
-- checkpoint belum benar;
-- sampler/schedule inference belum sesuai dengan training.
+- the model has not been trained for enough steps;
+- the dataset is too small;
+- captions are unclear or inconsistent;
+- the checkpoint is incorrect or incomplete;
+- the inference sampler or noise schedule does not match the training setup.
 
-### Model tidak memahami prompt dengan baik
+### The model does not understand prompts well
 
-XEN-GEN1-I saat ini memakai text conditioner sederhana. Kemampuan memahami prompt belum setara model image generator besar yang memakai text encoder dan cross-attention yang lebih kuat.
+XEN-GEN1-I currently uses a simple text conditioner. Its prompt understanding is expected to be much weaker than large image-generation systems that use stronger text encoders and cross-attention.
 
-### VRAM habis
+### Out of VRAM
 
-Dengan RTX 4060 8 GB, coba:
+With an RTX 4060 8 GB, try:
 
-- turunkan batch size;
-- gunakan gradient accumulation;
-- kurangi resolusi training jika pipeline yang digunakan mendukungnya;
-- pastikan proses lain yang memakai GPU sudah ditutup.
+- lowering the batch size;
+- using gradient accumulation;
+- reducing training resolution if supported by the training pipeline;
+- closing other applications that are using the GPU.
 
-## 7. Prinsip pengembangan
+## 7. Development notes
 
-Jangan menilai model hanya dari satu gambar. Simpan beberapa prompt tetap dan bandingkan hasil setelah perubahan arsitektur, dataset, atau training.
+Do not evaluate the model from a single generated image. Keep a fixed set of test prompts and compare outputs after changes to the architecture, dataset, or training configuration.
 
-XEN-GEN1-I adalah model terpisah dari XEN-GEN1-T:
+XEN-GEN1-I is a separate model from XEN-GEN1-T:
 
-- **XEN-GEN1-T** → text, coding, reasoning, math.
-- **XEN-GEN1-I** → text-to-image dan image-to-image/editing.
+- **XEN-GEN1-T** → text, coding, reasoning, and math.
+- **XEN-GEN1-I** → text-to-image and image-to-image/editing.
 - **XEN-GEN1-V** → video generation (future model).
 
-`configs/system_prompt_i.txt` adalah system prompt khusus XEN-GEN1-I dan tidak sama dengan system prompt XEN-GEN1-T.
+`configs/system_prompt_i.txt` contains the dedicated system prompt for XEN-GEN1-I and is separate from the XEN-GEN1-T system prompt.
