@@ -8,6 +8,10 @@ from model.config import XENConfig
 from model.model import XENModel
 from model.tokenizer import XENTokenizer
 
+SYSTEM_PROMPT_PATH = Path("configs/system_prompt_t.txt")
+
+def load_system_prompt():
+    return SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
 def load_examples(path):
     rows=[]
@@ -23,9 +27,10 @@ def load_examples(path):
 
 class XENDataset(Dataset):
     def __init__(self, examples, tokenizer, max_seq_len):
+        system_prompt = load_system_prompt()
         self.items=[]
         for q,r in examples:
-            text=f"User: {q}\\nAssistant: {r}"
+            text=f"System: {system_prompt}\nUser: {q}\nAssistant: {r}"
             ids=tokenizer.encode(text,max_length=max_seq_len)
             if len(ids)>=2: self.items.append(torch.tensor(ids,dtype=torch.long))
     def __len__(self): return len(self.items)
