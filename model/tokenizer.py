@@ -3,34 +3,37 @@ from pathlib import Path
 import json
 
 class XENTokenizer:
-    def __init__(self, vocab=None):
-        self.vocab = vocab or {"<pad>":0,"<bos>":1,"<eos>":2,"<unk>":3}
-        self.inverse = {v:k for k,v in self.vocab.items()}
+    """Small dependency-free byte tokenizer built from scratch.
 
-    def fit(self, texts, vocab_size=32000):
-        counts = {}
-        for text in texts:
-            for token in text.split():
-                counts[token] = counts.get(token, 0) + 1
-        for token, _ in sorted(counts.items(), key=lambda x:(-x[1],x[0])):
-            if token not in self.vocab and len(self.vocab) < vocab_size:
-                self.vocab[token] = len(self.vocab)
-        self.inverse = {v:k for k,v in self.vocab.items()}
+    Every UTF-8 byte is representable, so XEN has no normal-language OOV problem.
+    Token ids 4..259 map to byte values 0..255.
+    """
+    def __init__(self):
+        self.vocab_size = 260
+        self.special = {"<pad>": 0, "<bos>": 1, "<eos>": 2, "<unk>": 3}
+
+    def fit(self, texts=None, vocab_size=260):
+        if vocab_size != 260:
+            raise ValueError("XEN byte tokenizer requires vocab_size=260")
 
     def encode(self, text, max_length=None):
-        ids = [self.vocab["<bos>"]] + [self.vocab.get(t,3) for t in text.split()] + [self.vocab["<eos>"]]
-        if max_length:
+        ids = [1] + [4 + b for b in text.encode("utf-8")] + [2]
+        if max_length is not None:
             ids = ids[:max_length]
-            if ids and ids[-1] != self.vocab["<eos>"]:
-                ids[-1] = self.vocab["<eos>"]
+            if ids and ids[-1] != 2:
+                ids[-1] = 2
         return ids
 
     def decode(self, ids):
-        return " ".join(self.inverse.get(i,"<unk>") for i in ids if self.inverse.get(i) not in {"<pad>","<bos>","<eos>"})
+        raw = bytes(max(0, i - 4) for i in ids if 4 <= i <= 259)
+        return raw.decode("utf-8", errors="replace")
 
     def save(self, path):
-        Path(path).write_text(json.dumps(self.vocab, ensure_ascii=False, indent=2), encoding="utf-8")
+        Path(path).write_text(json.dumps({"type": "byte", "vocab_size": 260}), encoding="utf-8")
 
     @classmethod
     def load(cls, path):
-        return cls(json.loads(Path(path).read_text(encoding="utf-8")))
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        if data.get("type") != "byte":
+            raise ValueError("Tokenizer file is not a XEN byte tokenizer")
+        return cls()
