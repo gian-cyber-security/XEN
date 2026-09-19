@@ -21,6 +21,12 @@ XEN keeps text, image, and video as separate model families instead of combining
 - **GEN1-V** → video generation.
 - Future generations can use the same naming scheme: GEN2-T, GEN2-I, GEN2-V, and so on.
 
+## Web search
+
+The text-model family supports an optional web-search layer through the `ddgs` metasearch package. The text generators can automatically search for time-sensitive prompts and can also be forced with `--web-search` or disabled with `--no-web-search`. Search results are supplied as context to the local model; the model weights remain local.
+
+The web-search layer is currently integrated into **GEN1-T**, **GEN1-T-Code**, **GEN1-T-Fast**, and **GEN1-T-Plan**. GEN1-I and GEN1-V remain generation-focused models and do not use the text-answer search layer.
+
 ## Deployment
 
 The individual model repositories contain their own training and local inference instructions. The models are intended for local use and can be packaged for Hugging Face deployment.
