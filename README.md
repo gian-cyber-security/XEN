@@ -31,6 +31,7 @@ XEN does not load Qwen, Llama, Mistral, Gemma, or another pretrained language mo
 - U-Net-style image denoising architecture
 - 256×256 baseline resolution
 - Text-to-image training
+- DDIM-style deterministic local sampler
 - Separate image system prompt
 
 The default development target is an **RTX 4060 8GB + 32GB RAM** machine. XEN is a research prototype; capability depends heavily on dataset quality, training compute, and training duration.
@@ -76,9 +77,9 @@ python inference/generate.py --model-dir outputs/xen --prompt "What is 2 + 2?"
 
 XEN-GEN1-I is trained separately from XEN-GEN1-T.
 
-### 1. Prepare image dataset
+### 1. Prepare the image dataset
 
-Create a JSONL file such as `datasets/image_data.jsonl`:
+Create `datasets/image_data.jsonl`:
 
 ~~~json
 {"image":"datasets/images/cat.jpg","caption":"a small orange cat sitting in a garden"}
@@ -100,48 +101,88 @@ Run:
 python training/image_train.py --data datasets/image_data.jsonl --output outputs/xen-gen1-i
 ~~~
 
-For a custom training run:
+For a custom run:
 
 ~~~bash
 python training/image_train.py --data datasets/image_data.jsonl --output outputs/xen-gen1-i --steps 10000 --batch-size 2 --lr 0.0002
 ~~~
 
-Wait until the model has produced a trained checkpoint.
-
-### 3. Generate an image
-
-**Important:** the image inference script is not currently included in this repository. Therefore, there is no working image-generation command yet.
-
-The intended workflow is:
+Training creates:
 
 ~~~text
-image_data.jsonl
-       ↓
-training/image_train.py
-       ↓
-XEN-GEN1-I checkpoint
-       ↓
-inference/image_generate.py
-       ↓
+outputs/xen-gen1-i/
+├── model.pt
+└── tokenizer.json
+~~~
+
+### 3. Generate an image locally
+
+After training has completed, run:
+
+~~~bash
+python inference/image_generate.py --model-dir outputs/xen-gen1-i --prompt "a small orange cat sitting in a quiet garden, soft morning light"
+~~~
+
+The generated image is saved to:
+
+~~~text
+outputs/xen-gen1-i/generated.png
+~~~
+
+Choose a different output file with:
+
+~~~bash
+python inference/image_generate.py --model-dir outputs/xen-gen1-i --prompt "a low-poly fantasy castle on a floating island" --output outputs/my_image.png
+~~~
+
+### 4. Generation settings
+
+The default generation settings are:
+
+- `--size 256` — output resolution.
+- `--steps 50` — sampling steps.
+- `--seed 42` — random seed.
+
+Example:
+
+~~~bash
+python inference/image_generate.py --model-dir outputs/xen-gen1-i --prompt "a futuristic city at night" --size 256 --steps 50 --seed 123
+~~~
+
+For reproducible results, use the same prompt and seed.
+
+### 5. CPU or NVIDIA GPU
+
+The script automatically uses CUDA when available and otherwise falls back to CPU.
+
+For an NVIDIA GPU:
+
+~~~text
+XEN-GEN1-I
+    ↓
+PyTorch CUDA
+    ↓
+RTX GPU
+    ↓
 generated PNG
 ~~~
 
-Once `inference/image_generate.py` is added, the README will be updated with the exact command, prompt format, output path, and optional generation settings.
+CPU generation is supported but can be significantly slower.
 
-**Do not create or guess an inference command yourself.** The command will depend on the final checkpoint format and sampler implemented by the repository.
+### 6. What to expect
 
-### What to expect from the first model
+XEN-GEN1-I is a small model trained entirely from scratch. It is not a pretrained large image generator. Early generations may contain noise, distorted shapes, weak prompt understanding, or inconsistent composition.
 
-XEN-GEN1-I is a small model trained from scratch, not a pretrained large image generator. Early generations may contain noise, distorted shapes, weak prompt understanding, or inconsistent composition. This is expected during early development.
-
-If generation quality is poor, inspect:
+If the output is poor, check:
 
 - training loss;
 - number of training steps;
 - dataset size and diversity;
 - caption quality;
 - checkpoint integrity;
-- inference sampler and noise schedule.
+- sampling steps.
+
+The current model is a development baseline. Improving the dataset, text conditioning, diffusion schedule, and model capacity can improve future generations.
 
 ## API
 
