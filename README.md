@@ -6,7 +6,7 @@
 
 - **XEN-GEN1-T** → text, coding, reasoning, and math.
 - **XEN-GEN1-I** → image generation.
-- **XEN-GEN1-V** → video generation (future model).
+- **XEN-GEN1-V** → video generation.
 
 XEN does not load Qwen, Llama, Mistral, Gemma, or another pretrained language model for XEN-GEN1-T. Its tokenizer, architecture, and weights are created by this repository and initialized from scratch.
 
