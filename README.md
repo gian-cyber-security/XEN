@@ -184,6 +184,91 @@ If the output is poor, check:
 
 The current model is a development baseline. Improving the dataset, text conditioning, diffusion schedule, and model capacity can improve future generations.
 
+
+## XEN-GEN1-V — Video Generation
+
+XEN-GEN1-V is the separate video-generation family. It is implemented as a compact conditional video diffusion model trained from scratch.
+
+### Architecture
+
+- Factorized 3D residual U-Net-style denoiser.
+- Separate spatial and temporal convolutions so motion information is processed across frames.
+- Trainable byte-level text conditioner.
+- Temporal length is not hard-coded in the model; the same checkpoint can accept different clip lengths subject to available memory.
+- Initial development target: 16 frames at 128×128 on an RTX 4060 8GB.
+- The generation interface supports a requested duration from 1 to 15 seconds.
+
+This is a research/development model, not a pretrained Sora/Veo-class system. Video quality depends strongly on dataset quality, training duration, model capacity, and available compute.
+
+### Dataset
+
+Create `datasets/video_data.jsonl` using:
+
+~~~json
+{"video":"datasets/videos/cat.mp4","caption":"a small orange cat walking through a quiet garden, soft morning light"}
+{"video":"datasets/videos/car.mp4","caption":"a red sports car driving through a city at night, cinematic tracking camera"}
+~~~
+
+Each entry contains:
+
+- `video` — path to the training video.
+- `caption` — accurate visual and temporal description.
+
+The training loader samples a temporal clip from each source video, resizes it, normalizes it to [-1, 1], and trains the model to predict diffusion noise.
+
+### Train XEN-GEN1-V
+
+Default development run:
+
+~~~bash
+python training/video_train.py --data datasets/video_data.jsonl --output outputs/xen-gen1-v
+~~~
+
+RTX 4060-oriented starting point:
+
+~~~bash
+python training/video_train.py --data datasets/video_data.jsonl --output outputs/xen-gen1-v --frames 16 --size 128 --batch-size 1 --steps 10000 --grad-accumulation 8
+~~~
+
+The training checkpoint contains the video denoiser, text conditioner, and tokenizer.
+
+### Generate a video locally
+
+Generate a short clip:
+
+~~~bash
+python inference/video_generate.py --model-dir outputs/xen-gen1-v --prompt "a red ball rolling across a wooden table"
+~~~
+
+Choose a duration between 1 and 15 seconds:
+
+~~~bash
+python inference/video_generate.py --model-dir outputs/xen-gen1-v --prompt "a red ball rolling across a wooden table" --duration 5 --fps 8
+~~~
+
+The output defaults to:
+
+~~~text
+outputs/xen-gen1-v/generated.mp4
+~~~
+
+Available generation controls:
+
+- `--duration 1..15` — requested video duration in seconds.
+- `--frames` — directly choose frame count instead of duration.
+- `--size` — square output resolution.
+- `--steps` — diffusion sampling steps.
+- `--fps` — output frames per second.
+- `--seed` — reproducible random seed.
+
+Longer durations and higher resolutions can require substantially more VRAM. The duration option exposes 1–15 seconds, but the actual practical limit depends on the user's GPU/RAM and the trained checkpoint. CPU generation is supported but can be extremely slow.
+
+### Local and Hugging Face
+
+The model is designed so the checkpoint and inference code can be used locally or packaged for Hugging Face. Hugging Face deployment should use a GPU Space for practical generation.
+
+Image-to-video conditioning is intentionally reserved for a future XEN-GEN1-V revision; the current GEN1 checkpoint is text-to-video.
+
 ## API
 
 Start the XEN API:
